@@ -1,0 +1,17 @@
+fake_storm argv: -c C:\Users\Munir\PycharmProjects\PythonProject1\example\configs\config_104.yml -u -f C:\Users\Munir\PycharmProjects\PythonProject1\example\affects\affect_enable_104.yml -e
+config: C:\Users\Munir\PycharmProjects\PythonProject1\example\configs\config_104.yml -> # example/configs/config_104.yml
+#
+# Заглушка. Настоящий конфиг storm подставьте свой — программе всё равно,
+# что внутри файла: она только передаёт его абсолютный путь в -c.
+
+experiment: 104
+name: эксперимент 104
+duration_min: 10
+affect: C:\Users\Munir\PycharmProjects\PythonProject1\example\affects\affect_enable_104.yml -> # example/affects/affect_enable_104.yml
+#
+# Заглушка аффекта. Содержимое роли не играет — важно лишь то,
+# что программа передаёт этот путь в -f нужного шага.
+
+experiment: 104
+action: enable
+готово, код возврата 0

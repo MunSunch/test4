@@ -1,0 +1,12 @@
+$ C:\Users\Munir\PycharmProjects\PythonProject1\.venv/Scripts\python3.EXE C:\Users\Munir\PycharmProjects\PythonProject1/tests/fake_storm.py -c C:\Users\Munir\PycharmProjects\PythonProject1\example\configs\config_104.yml
+
+fake_storm argv: -c C:\Users\Munir\PycharmProjects\PythonProject1\example\configs\config_104.yml
+config: C:\Users\Munir\PycharmProjects\PythonProject1\example\configs\config_104.yml -> # example/configs/config_104.yml
+#
+# Заглушка. Настоящий конфиг storm подставьте свой — программе всё равно,
+# что внутри файла: она только передаёт его абсолютный путь в -c.
+
+experiment: 104
+name: эксперимент 104
+duration_min: 10
+готово, код возврата 0

@@ -1,0 +1,42 @@
+{
+  "_комментарий": "Пример, работающий из коробки: вместо storm вызывается заглушка tests/fake_storm.py. Чтобы перевести на настоящую утилиту, замените exe на \"storm\" и уберите первый элемент {root}/tests/fake_storm.py из каждого args.",
+
+  "exe": "python3",
+
+  "workers": 4,
+  "attempts": 2,
+  "retry_delay_sec": 1,
+  "success_exit_codes": [0],
+
+  "patterns": {
+    "config": "configs/config_{n}.yml",
+    "enable": "affects/affect_enable_{n}.yml",
+    "disable": "affects/affect_disable_{n}.yml"
+  },
+
+  "steps": {
+    "create": {
+      "args": ["{root}/tests/fake_storm.py", "-c", "{config}", "-f", "{enable}", "-e"],
+      "timeout_sec": 60
+    },
+    "enable": {
+      "args": ["{root}/tests/fake_storm.py", "-c", "{config}", "-u", "-f", "{enable}", "-e"],
+      "timeout_sec": 60
+    },
+    "disable": {
+      "args": ["{root}/tests/fake_storm.py", "-c", "{config}", "-u", "-f", "{disable}", "-e"],
+      "timeout_sec": 60
+    },
+    "stop": {
+      "args": ["{root}/tests/fake_storm.py", "-c", "{config}"],
+      "timeout_sec": 60
+    }
+  },
+
+  "run": {
+    "isolate_cwd": true,
+    "collect": ["*.log"],
+    "fail_regex": "",
+    "success_regex": ""
+  }
+}

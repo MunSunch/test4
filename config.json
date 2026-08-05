@@ -1,0 +1,40 @@
+{
+  "exe": "storm",
+
+  "workers": 16,
+  "attempts": 3,
+  "retry_delay_sec": 30,
+  "success_exit_codes": [0],
+
+  "patterns": {
+    "config": "configs/config_{n}.yml",
+    "enable": "affects/affect_enable_{n}.yml",
+    "disable": "affects/affect_disable_{n}.yml"
+  },
+
+  "steps": {
+    "create": {
+      "args": ["-c", "{config}", "-f", "{enable}", "-e"],
+      "timeout_sec": 2400
+    },
+    "enable": {
+      "args": ["-c", "{config}", "-u", "-f", "{enable}", "-e"],
+      "timeout_sec": 300
+    },
+    "disable": {
+      "args": ["-c", "{config}", "-u", "-f", "{disable}", "-e"],
+      "timeout_sec": 300
+    },
+    "stop": {
+      "args": ["-c", "{config}"],
+      "timeout_sec": 2400
+    }
+  },
+
+  "run": {
+    "isolate_cwd": true,
+    "collect": ["*.log"],
+    "fail_regex": "",
+    "success_regex": ""
+  }
+}

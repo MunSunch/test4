@@ -1,0 +1,12 @@
+{"n": 104, "step": "create", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\104\\create\\attempt1", "reason": ""}
+{"n": 105, "step": "create", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\105\\create\\attempt1", "reason": ""}
+{"n": 103, "step": "create", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\103\\create\\attempt1", "reason": ""}
+{"n": 104, "step": "enable", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\104\\enable\\attempt1", "reason": ""}
+{"n": 105, "step": "enable", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\105\\enable\\attempt1", "reason": ""}
+{"n": 103, "step": "enable", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\103\\enable\\attempt1", "reason": ""}
+{"n": 105, "step": "disable", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\105\\disable\\attempt1", "reason": ""}
+{"n": 103, "step": "disable", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\103\\disable\\attempt1", "reason": ""}
+{"n": 104, "step": "disable", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:37", "dir": "runs\\104\\disable\\attempt1", "reason": ""}
+{"n": 104, "step": "stop", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:38", "dir": "runs\\104\\stop\\attempt1", "reason": ""}
+{"n": 105, "step": "stop", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:38", "dir": "runs\\105\\stop\\attempt1", "reason": ""}
+{"n": 103, "step": "stop", "status": "ok", "rc": 0, "attempt": 1, "sec": 0.3, "started": "2026-08-06T00:31:38", "dir": "runs\\103\\stop\\attempt1", "reason": ""}
