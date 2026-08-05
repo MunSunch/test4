@@ -82,14 +82,20 @@ class Sandbox:
         shutil.rmtree(self.root, ignore_errors=True)
 
     def make_experiments(
-        self, numbers: Iterable[int], roles: Sequence[str] = ALL_ROLES
+        self, ids: "Iterable[object]", roles: Sequence[str] = ALL_ROLES
     ) -> None:
-        """Разложить configs/config_N.yml и affects/affect_(enable|disable)_N.yml."""
-        for number in numbers:
+        """Разложить файлы экспериментов.
+
+        Идентификатор — номер ("103") или номер с кластером ("103m5"),
+        как он выглядит в имени файла.
+        """
+        for experiment_id in ids:
             for role in roles:
-                path = self.inputs / LAYOUT[role].format(number)
+                path = self.inputs / LAYOUT[role].format(experiment_id)
                 path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text("{}: эксперимент {}\n".format(role, number), encoding="utf-8")
+                path.write_text(
+                    "{}: эксперимент {}\n".format(role, experiment_id), encoding="utf-8"
+                )
 
     def write_config(self, **overrides: Any) -> Path:
         base: Dict[str, Any] = {
@@ -147,5 +153,5 @@ class Sandbox:
     def state_path(self) -> Path:
         return self.out / "state.jsonl"
 
-    def attempt_dir(self, n: int, step: str, attempt: int = 1) -> Path:
+    def attempt_dir(self, n: object, step: str, attempt: int = 1) -> Path:
         return self.out / "runs" / str(n) / step / "attempt{}".format(attempt)

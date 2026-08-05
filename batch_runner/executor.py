@@ -37,7 +37,7 @@ ProcessHook = Callable[["object"], None]
 class StepResult:
     """Итог одной попытки одного шага."""
 
-    n: int
+    n: str
     step: str
     status: str
     rc: Optional[int]
@@ -71,24 +71,24 @@ class StepResult:
         }
 
 
-def workdir_for(out_root: Path, n: int, step_name: str, attempt: int) -> Path:
+def workdir_for(out_root: Path, n: str, step_name: str, attempt: int) -> Path:
     """Своя папка на каждую попытку каждого шага.
 
     Изоляция нужна не для красоты: утилита пишет логи сама, и если она делает
     это по фиксированному имени, то параллельные запуски в общей папке
     затрут результаты друг друга.
     """
-    return out_root / "runs" / str(n) / step_name / "attempt{}".format(attempt)
+    return out_root / "runs" / n / step_name / "attempt{}".format(attempt)
 
 
-def next_attempt_number(out_root: Path, n: int, step_name: str) -> int:
+def next_attempt_number(out_root: Path, n: str, step_name: str) -> int:
     """Первый свободный номер попытки для этого шага.
 
     Нумерация сквозная по всем прогонам: если шаг уже падал вчера, сегодняшний
     перезапуск не должен затирать вчерашние логи — именно по ним и разбираются,
     почему не получилось.
     """
-    parent = out_root / "runs" / str(n) / step_name
+    parent = out_root / "runs" / n / step_name
     if not parent.is_dir():
         return 1
     highest = 0

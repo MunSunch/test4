@@ -15,7 +15,8 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from .executor import STATUS_OK, StepResult
 
-Key = Tuple[int, str]
+#: Ключ шага: идентификатор эксперимента ("103" или "103m5") и имя шага.
+Key = Tuple[str, str]
 
 
 def read_records(path: Path) -> List[Dict[str, object]]:
@@ -43,7 +44,7 @@ def read_records(path: Path) -> List[Dict[str, object]]:
 
 def _key(record: Dict[str, object]) -> Optional[Key]:
     try:
-        return int(record["n"]), str(record["step"])
+        return str(record["n"]), str(record["step"])
     except (KeyError, TypeError, ValueError):
         return None
 

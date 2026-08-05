@@ -16,38 +16,45 @@ python3 runner.py --dir example --config example/config.json --mode all
 ```
 example/
   configs/
-    config_103.yml
-    config_104.yml
-    config_105.yml
+    config_103m4.yml
+    config_103m5.yml
+    config_104m5.yml
   affects/
-    affect_enable_103.yml
-    affect_disable_103.yml
-    affect_enable_104.yml
-    affect_disable_104.yml
-    affect_enable_105.yml
-    affect_disable_105.yml
+    affect_enable_103m4.yml
+    affect_disable_103m4.yml
+    affect_enable_103m5.yml
+    affect_disable_103m5.yml
+    affect_enable_104m5.yml
+    affect_disable_104m5.yml
   config.json
 ```
 
 `--dir example` указывает на корень, а `configs/` и `affects/` прописаны в паттернах
-внутри `config.json`. Номер в имени файла связывает их в один эксперимент:
-`config_103.yml` + `affect_enable_103.yml` + `affect_disable_103.yml`.
+внутри `config.json`. Идентификатор в имени файла связывает их в один эксперимент:
+`config_103m5.yml` + `affect_enable_103m5.yml` + `affect_disable_103m5.yml`.
+
+Здесь три эксперимента, и номер 103 намеренно встречается дважды — на кластерах
+m4 и m5. Это два разных эксперимента: у них свои файлы, свои папки с логами
+и свои записи в журнале.
 
 Содержимое yml-файлов ничего не значит — программа их не читает, а только передаёт
 абсолютные пути в аргументы утилиты.
 
 ## Какие команды получаются
 
-Для N=103 из `/Users/munir/PythonProject1/example`:
+Для 103m5 из `/Users/munir/PythonProject1/example`:
 
 ```
-create    -c .../configs/config_103.yml -f .../affects/affect_enable_103.yml  -e
-enable    -c .../configs/config_103.yml -u -f .../affects/affect_enable_103.yml  -e
-disable   -c .../configs/config_103.yml -u -f .../affects/affect_disable_103.yml -e
-stop      -c .../configs/config_103.yml
+create    -c .../configs/config_103m5.yml -f .../affects/affect_enable_103m5.yml  -e
+enable    -c .../configs/config_103m5.yml -u -f .../affects/affect_enable_103m5.yml  -e
+disable   -c .../configs/config_103m5.yml -u -f .../affects/affect_disable_103m5.yml -e
+stop      -c .../configs/config_103m5.yml
 ```
 
 Посмотреть их целиком, ничего не запуская: `--dry-run`.
+
+Выбрать только один кластер: `--only 103m5`. Взять номер на всех кластерах
+сразу: `--only 103`.
 
 ## Как перевести на настоящую утилиту
 

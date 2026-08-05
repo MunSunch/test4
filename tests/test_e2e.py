@@ -10,6 +10,10 @@ from tests.support import Sandbox, env
 from batch_runner.state import completed_keys, failed_keys, read_records
 
 
+def ids(*numbers, cluster="m5"):
+    return ["{}{}".format(number, cluster) for number in numbers]
+
+
 class BaseE2E(unittest.TestCase):
     def setUp(self):
         self.sandbox = Sandbox()
@@ -18,9 +22,9 @@ class BaseE2E(unittest.TestCase):
 
 class ParallelismTest(BaseE2E):
     def test_параллельный_прогон_заметно_быстрее_последовательного(self):
-        numbers = range(103, 115)
-        count, sleep, workers = len(list(numbers)), 0.8, 6
-        self.sandbox.make_experiments(numbers)
+        experiments = ids(*range(103, 115))
+        count, sleep, workers = len(experiments), 0.8, 6
+        self.sandbox.make_experiments(experiments)
         self.sandbox.write_config(workers=workers)
 
         with env(FAKE_STORM_SLEEP=sleep):
@@ -43,40 +47,91 @@ class ParallelismTest(BaseE2E):
     def test_логи_параллельных_запусков_не_перетирают_друг_друга(self):
         # Заглушка пишет storm.log по фиксированному имени, как настоящая
         # утилита. Без изоляции рабочих папок остался бы один файл на всех.
-        numbers = list(range(103, 109))
-        self.sandbox.make_experiments(numbers)
+        experiments = ids(103, 104, 105) + ids(103, 104, 105, cluster="m4")
+        self.sandbox.make_experiments(experiments)
         self.sandbox.write_config(workers=6)
 
         with env(FAKE_STORM_SLEEP=0.3):
             code, output = self.sandbox.run("--mode", "create")
 
         self.assertEqual(code, 0, output)
-        for number in numbers:
-            log = self.sandbox.attempt_dir(number, "create") / "storm.log"
-            self.assertTrue(log.is_file(), "нет лога для N={}".format(number))
+        for experiment_id in experiments:
+            log = self.sandbox.attempt_dir(experiment_id, "create") / "storm.log"
+            self.assertTrue(log.is_file(), "нет лога для {}".format(experiment_id))
             text = log.read_text(encoding="utf-8")
-            self.assertIn("config_{}.yml".format(number), text)
-            self.assertIn("эксперимент {}".format(number), text)
+            self.assertIn("config_{}.yml".format(experiment_id), text)
+            self.assertIn("эксперимент {}".format(experiment_id), text)
+
+
+class ClusterTest(BaseE2E):
+    def test_один_номер_на_двух_кластерах_идёт_как_два_эксперимента(self):
+        self.sandbox.make_experiments(["103m4", "103m5"])
+        self.sandbox.write_config()
+
+        with env(FAKE_STORM_SLEEP=0.1):
+            code, output = self.sandbox.run("--mode", "create")
+
+        self.assertEqual(code, 0, output)
+        records = read_records(self.sandbox.state_path)
+        self.assertEqual(
+            completed_keys(records), {("103m4", "create"), ("103m5", "create")}
+        )
+        for experiment_id in ("103m4", "103m5"):
+            log = self.sandbox.attempt_dir(experiment_id, "create") / "storm.log"
+            self.assertIn("config_{}.yml".format(experiment_id), log.read_text(encoding="utf-8"))
+
+    def test_only_по_номеру_берёт_все_кластеры(self):
+        self.sandbox.make_experiments(["103m4", "103m5", "104m5"])
+        self.sandbox.write_config()
+
+        with env(FAKE_STORM_SLEEP=0.1):
+            code, output = self.sandbox.run("--mode", "create", "--only", "103")
+
+        self.assertEqual(code, 0, output)
+        records = read_records(self.sandbox.state_path)
+        self.assertEqual({r["n"] for r in records}, {"103m4", "103m5"})
+
+    def test_only_с_кластером_берёт_ровно_один(self):
+        self.sandbox.make_experiments(["103m4", "103m5", "104m5"])
+        self.sandbox.write_config()
+
+        with env(FAKE_STORM_SLEEP=0.1):
+            code, output = self.sandbox.run("--mode", "create", "--only", "103m5")
+
+        self.assertEqual(code, 0, output)
+        records = read_records(self.sandbox.state_path)
+        self.assertEqual({r["n"] for r in records}, {"103m5"})
+
+    def test_файлы_без_кластера_тоже_работают(self):
+        self.sandbox.make_experiments(["103", "104m5"])
+        self.sandbox.write_config()
+
+        with env(FAKE_STORM_SLEEP=0.1):
+            code, output = self.sandbox.run("--mode", "create")
+
+        self.assertEqual(code, 0, output)
+        records = read_records(self.sandbox.state_path)
+        self.assertEqual({r["n"] for r in records}, {"103", "104m5"})
 
 
 class StepsTest(BaseE2E):
     def test_каждый_шаг_получает_свой_affect_файл(self):
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
             code, output = self.sandbox.run("--mode", "enable,disable")
 
         self.assertEqual(code, 0, output)
-        enable_log = (self.sandbox.attempt_dir(103, "enable") / "storm.log").read_text(encoding="utf-8")
-        disable_log = (self.sandbox.attempt_dir(103, "disable") / "storm.log").read_text(encoding="utf-8")
-        self.assertIn("affect_enable_103.yml", enable_log)
-        self.assertNotIn("affect_disable_103.yml", enable_log)
-        self.assertIn("affect_disable_103.yml", disable_log)
-        self.assertNotIn("affect_enable_103.yml", disable_log)
+        enable_log = (self.sandbox.attempt_dir("103m5", "enable") / "storm.log").read_text(encoding="utf-8")
+        disable_log = (self.sandbox.attempt_dir("103m5", "disable") / "storm.log").read_text(encoding="utf-8")
+        self.assertIn("affect_enable_103m5.yml", enable_log)
+        self.assertNotIn("affect_disable_103m5.yml", enable_log)
+        self.assertIn("affect_disable_103m5.yml", disable_log)
+        self.assertNotIn("affect_enable_103m5.yml", disable_log)
 
     def test_mode_all_проходит_все_четыре_шага(self):
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
@@ -86,13 +141,13 @@ class StepsTest(BaseE2E):
         records = read_records(self.sandbox.state_path)
         self.assertEqual(
             completed_keys(records),
-            {(103, "create"), (103, "enable"), (103, "disable"), (103, "stop")},
+            {("103m5", step) for step in ("create", "enable", "disable", "stop")},
         )
 
 
 class ResumeTest(BaseE2E):
     def test_повторный_запуск_пропускает_сделанное(self):
-        self.sandbox.make_experiments([103, 104, 105])
+        self.sandbox.make_experiments(["103m5", "104m5", "105m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
@@ -102,12 +157,11 @@ class ResumeTest(BaseE2E):
         self.assertEqual(first_code, 0)
         self.assertEqual(second_code, 0)
         self.assertIn("Всё уже сделано", second_output)
-        # Второго захода на диск не случилось.
-        self.assertTrue(self.sandbox.attempt_dir(103, "create", 1).is_dir())
-        self.assertFalse(self.sandbox.attempt_dir(103, "create", 2).exists())
+        self.assertTrue(self.sandbox.attempt_dir("103m5", "create", 1).is_dir())
+        self.assertFalse(self.sandbox.attempt_dir("103m5", "create", 2).exists())
 
     def test_force_прогоняет_заново(self):
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
@@ -115,11 +169,10 @@ class ResumeTest(BaseE2E):
             code, output = self.sandbox.run("--mode", "create", "--force")
 
         self.assertEqual(code, 0, output)
-        records = read_records(self.sandbox.state_path)
-        self.assertEqual(len(records), 2)
+        self.assertEqual(len(read_records(self.sandbox.state_path)), 2)
 
     def test_незаконченный_шаг_доделывается(self):
-        self.sandbox.make_experiments([103, 104])
+        self.sandbox.make_experiments(["103m5", "104m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
@@ -131,45 +184,45 @@ class ResumeTest(BaseE2E):
         # create не повторялся, enable выполнен для обоих.
         self.assertEqual(
             completed_keys(records),
-            {(103, "create"), (104, "create"), (103, "enable"), (104, "enable")},
+            {(n, step) for n in ("103m5", "104m5") for step in ("create", "enable")},
         )
-        self.assertFalse(self.sandbox.attempt_dir(103, "create", 2).exists())
+        self.assertFalse(self.sandbox.attempt_dir("103m5", "create", 2).exists())
 
 
 class FailureTest(BaseE2E):
     def test_ретраи_и_отчёт(self):
-        self.sandbox.make_experiments([103, 104, 105])
+        self.sandbox.make_experiments(["103m5", "104m5", "105m5"])
         self.sandbox.write_config(attempts=2, retry_delay_sec=0)
 
         with env(FAKE_STORM_SLEEP=0.1, FAKE_STORM_FAIL_FOR="105"):
             code, output = self.sandbox.run("--mode", "create")
 
         self.assertEqual(code, 1, output)
-        self.assertTrue(self.sandbox.attempt_dir(105, "create", 1).is_dir())
-        self.assertTrue(self.sandbox.attempt_dir(105, "create", 2).is_dir())
-        self.assertFalse(self.sandbox.attempt_dir(103, "create", 2).exists())
+        self.assertTrue(self.sandbox.attempt_dir("105m5", "create", 1).is_dir())
+        self.assertTrue(self.sandbox.attempt_dir("105m5", "create", 2).is_dir())
+        self.assertFalse(self.sandbox.attempt_dir("103m5", "create", 2).exists())
 
         records = read_records(self.sandbox.state_path)
-        self.assertEqual(failed_keys(records), {(105, "create")})
+        self.assertEqual(failed_keys(records), {("105m5", "create")})
 
         report = (self.sandbox.out / "report.txt").read_text(encoding="utf-8")
-        self.assertIn("N=105", report)
+        self.assertIn("105m5", report)
         self.assertIn("create", report)
 
     def test_провал_шага_отменяет_следующие(self):
         # Нет смысла применять аффект к эксперименту, который не создался.
-        self.sandbox.make_experiments([103, 104])
+        self.sandbox.make_experiments(["103m5", "104m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1, FAKE_STORM_FAIL_FOR="104"):
             code, output = self.sandbox.run("--mode", "create,enable")
 
         self.assertEqual(code, 1, output)
-        self.assertTrue(self.sandbox.attempt_dir(103, "enable", 1).is_dir())
-        self.assertFalse(self.sandbox.attempt_dir(104, "enable", 1).exists())
+        self.assertTrue(self.sandbox.attempt_dir("103m5", "enable", 1).is_dir())
+        self.assertFalse(self.sandbox.attempt_dir("104m5", "enable", 1).exists())
 
     def test_fail_regex_ловит_ошибку_при_нулевом_коде_возврата(self):
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config(run={"fail_regex": "ОШИБКА"})
 
         with env(FAKE_STORM_SLEEP=0.1, FAKE_STORM_FAIL_TEXT="ОШИБКА: не сошлось"):
@@ -184,7 +237,7 @@ class FailureTest(BaseE2E):
 class TimeoutTest(BaseE2E):
     def test_таймаут_убивает_и_порождённых_потомков(self):
         child_sleep = 3.0
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config(steps={"create": {"timeout_sec": 1}})
 
         with env(
@@ -204,30 +257,41 @@ class TimeoutTest(BaseE2E):
 
         # Потомок должен был умереть вместе с родителем: если он выжил,
         # то через child_sleep секунд оставит после себя файл.
-        marker = self.sandbox.attempt_dir(103, "create") / "child_survived.txt"
+        marker = self.sandbox.attempt_dir("103m5", "create") / "child_survived.txt"
         time.sleep(child_sleep + 1.5)
         self.assertFalse(marker.exists(), "потомок пережил убийство дерева процессов")
 
 
 class DryRunTest(BaseE2E):
     def test_ничего_не_запускает_и_показывает_команды(self):
-        self.sandbox.make_experiments([103, 104])
+        self.sandbox.make_experiments(["103m5", "104m5"])
         self.sandbox.write_config()
 
         code, output = self.sandbox.run("--mode", "create,enable,disable", "--dry-run")
 
         self.assertEqual(code, 0, output)
-        self.assertIn("config_103.yml", output)
-        self.assertIn("affect_enable_103.yml", output)
-        self.assertIn("affect_disable_103.yml", output)
+        self.assertIn("config_103m5.yml", output)
+        self.assertIn("affect_enable_103m5.yml", output)
+        self.assertIn("affect_disable_103m5.yml", output)
         self.assertIn("Всего запусков утилиты: 6", output)
         self.assertFalse((self.sandbox.out / "runs").exists())
         self.assertFalse(self.sandbox.state_path.exists())
 
 
 class SelectionTest(BaseE2E):
-    def test_only_и_limit(self):
-        self.sandbox.make_experiments(range(103, 113))
+    def test_limit(self):
+        self.sandbox.make_experiments(ids(*range(103, 113)))
+        self.sandbox.write_config()
+
+        with env(FAKE_STORM_SLEEP=0.1):
+            code, output = self.sandbox.run("--mode", "create", "--limit", "3")
+
+        self.assertEqual(code, 0, output)
+        records = read_records(self.sandbox.state_path)
+        self.assertEqual({r["n"] for r in records}, {"103m5", "104m5", "105m5"})
+
+    def test_диапазон_в_only(self):
+        self.sandbox.make_experiments(ids(*range(103, 113)))
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
@@ -235,10 +299,10 @@ class SelectionTest(BaseE2E):
 
         self.assertEqual(code, 0, output)
         records = read_records(self.sandbox.state_path)
-        self.assertEqual({r["n"] for r in records}, {104, 107, 108})
+        self.assertEqual({r["n"] for r in records}, {"104m5", "107m5", "108m5"})
 
     def test_шаг_stop_не_требует_affect_файлов(self):
-        self.sandbox.make_experiments([103], roles=("config",))
+        self.sandbox.make_experiments(["103m5"], roles=("config",))
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1):
@@ -246,10 +310,10 @@ class SelectionTest(BaseE2E):
 
         self.assertEqual(code, 0, output)
         records = read_records(self.sandbox.state_path)
-        self.assertEqual(completed_keys(records), {(103, "stop")})
+        self.assertEqual(completed_keys(records), {("103m5", "stop")})
 
     def test_only_failed_берёт_только_упавшее(self):
-        self.sandbox.make_experiments([103, 104, 105])
+        self.sandbox.make_experiments(["103m5", "104m5", "105m5"])
         self.sandbox.write_config()
 
         with env(FAKE_STORM_SLEEP=0.1, FAKE_STORM_FAIL_FOR="104"):
@@ -258,13 +322,13 @@ class SelectionTest(BaseE2E):
             code, output = self.sandbox.run("--mode", "create", "--only-failed")
 
         self.assertEqual(code, 0, output)
-        self.assertTrue(self.sandbox.attempt_dir(104, "create", 2).is_dir())
-        self.assertFalse(self.sandbox.attempt_dir(103, "create", 2).exists())
+        self.assertTrue(self.sandbox.attempt_dir("104m5", "create", 2).is_dir())
+        self.assertFalse(self.sandbox.attempt_dir("103m5", "create", 2).exists())
 
 
 class ValidationTest(BaseE2E):
     def test_неизвестный_шаг_даёт_понятную_ошибку(self):
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config()
         code, output = self.sandbox.run("--mode", "нетакого")
         self.assertEqual(code, 2)
@@ -272,7 +336,7 @@ class ValidationTest(BaseE2E):
 
     def test_опечатка_в_плейсхолдере_не_уезжает_в_команду(self):
         # {enabel} иначе ушёл бы в утилиту литеральной строкой.
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config(
             steps={"create": {"args": ["-c", "{config}", "-f", "{enabel}"]}}
         )
@@ -281,8 +345,15 @@ class ValidationTest(BaseE2E):
         self.assertIn("{enabel}", output)
         self.assertFalse((self.sandbox.out / "runs").exists())
 
+    def test_мусор_в_only_даёт_понятную_ошибку(self):
+        self.sandbox.make_experiments(["103m5"])
+        self.sandbox.write_config()
+        code, output = self.sandbox.run("--mode", "create", "--only", "м5")
+        self.assertEqual(code, 2)
+        self.assertIn("103m5", output)  # подсказка с примером формата
+
     def test_ненайденная_утилита_останавливает_до_запуска(self):
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config(exe="такой-утилиты-точно-нет-12345")
         code, output = self.sandbox.run("--mode", "create")
         self.assertEqual(code, 2)
@@ -296,7 +367,7 @@ class ValidationTest(BaseE2E):
 
     def test_опечатка_в_пути_конфига_не_проходит_молча(self):
         # Иначе прогон пошёл бы на встроенных дефолтах — с чужой командой.
-        self.sandbox.make_experiments([103])
+        self.sandbox.make_experiments(["103m5"])
         self.sandbox.write_config()
         self.sandbox.config_path = self.sandbox.root / "canfig.json"
         code, output = self.sandbox.run("--mode", "create")

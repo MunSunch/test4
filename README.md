@@ -13,20 +13,28 @@ python3 runner.py --dir /Users/munir/exp --mode create
 
 ## Как разложены файлы
 
-`--dir` это корень, внутри которого лежат папки по видам файлов. Номер эксперимента
-связывает их между собой:
+`--dir` это корень, внутри которого лежат папки по видам файлов. Идентификатор
+эксперимента связывает их между собой — это номер и, если он есть в именах,
+название кластера:
 
 ```
 /Users/munir/exp/
   configs/
-    config_103.yml
-    config_104.yml
+    config_103m4.yml
+    config_103m5.yml
+    config_104m5.yml
   affects/
-    affect_enable_103.yml
-    affect_disable_103.yml
-    affect_enable_104.yml
-    affect_disable_104.yml
+    affect_enable_103m4.yml
+    affect_disable_103m4.yml
+    affect_enable_103m5.yml
+    affect_disable_103m5.yml
+    affect_enable_104m5.yml
+    affect_disable_104m5.yml
 ```
+
+**103m4 и 103m5 — два разных эксперимента.** Один и тот же номер на разных кластерах
+нигде не смешивается: ни в очереди, ни в журнале, ни в папках с логами. Кластер
+необязателен — `config_103.yml` без него тоже подойдёт и будет жить рядом.
 
 Раскладка задаётся в `config.json` и меняется без правки кода — папка указывается
 прямо в паттерне, поэтому отдельного аргумента на каждую папку не нужно.
@@ -43,9 +51,9 @@ python3 runner.py --dir example --config example/config.json --mode all
 Ошибка в шаблоне команды стоит десять минут, поэтому вводить в работу стоит по шагам:
 
 ```bash
-python3 runner.py --dir /Users/munir/exp --mode all --dry-run    # 1. сверить команды глазами
-python3 runner.py --dir /Users/munir/exp --mode all --only 103   # 2. один настоящий эксперимент
-python3 runner.py --dir /Users/munir/exp --mode all              # 3. полный прогон
+python3 runner.py --dir /Users/munir/exp --mode all --dry-run      # 1. сверить команды глазами
+python3 runner.py --dir /Users/munir/exp --mode all --only 103m5   # 2. один настоящий эксперимент
+python3 runner.py --dir /Users/munir/exp --mode all                # 3. полный прогон
 ```
 
 На многочасовой прогон запускайте под `caffeinate`, иначе Mac уснёт в середине:
@@ -64,7 +72,7 @@ caffeinate -i python3 runner.py --dir /Users/munir/exp --mode all
 | `--mode` | какие шаги выполнять: `create`, `create,enable` или `all` — все шаги из конфига по порядку. По умолчанию `create` |
 | `--workers N` | сколько запусков утилиты держать одновременно |
 | `--out DIR` | куда складывать журнал и логи, по умолчанию `./storm_runs` |
-| `--only 103,105,107-112` | только эти номера экспериментов |
+| `--only 103,105m4,107-112` | только эти эксперименты. Голое число берёт все кластеры этого номера, `105m4` — ровно один |
 | `--limit N` | только первые N экспериментов |
 | `-r`, `--recursive` | искать файлы и во вложенных папках |
 | `--dry-run` | показать готовые команды и выйти, ничего не запуская |
@@ -101,8 +109,14 @@ caffeinate -i python3 runner.py --dir /Users/munir/exp --mode all
 }
 ```
 
-`{n}` означает «любое число», остальное совпадает буквально. Файлы связываются
-в эксперимент по этому числу: `config_103.yml` идёт вместе с `affect_enable_103.yml`.
+`{n}` — это номер эксперимента вместе с названием кластера, если оно есть: под него
+подходят и `config_103.yml`, и `config_103m5.yml`. Остальное в паттерне совпадает
+буквально. Файлы связываются в эксперимент по этому идентификатору:
+`config_103m5.yml` идёт вместе с `affect_enable_103m5.yml`.
+
+Идентификатор должен начинаться с цифры и состоять из букв и цифр. Подчёркивание
+в него не входит — поэтому случайный `config_103m5_старый.yml` не станет
+самостоятельным экспериментом, а будет просто проигнорирован.
 
 Слева от имени файла — папка относительно `--dir`. Можно указать и абсолютный путь,
 если какой-то вид файлов лежит совсем в другом месте.
@@ -141,14 +155,14 @@ yml — допишите строчку в `patterns`, и `{новая_роль}
 
 ### Плейсхолдеры
 
-Для эксперимента N=103 в папке `/Users/munir/exp`:
+Для эксперимента 103m5 в папке `/Users/munir/exp`:
 
 | Плейсхолдер | Значение |
 |---|---|
-| `{config}` | `/Users/munir/exp/configs/config_103.yml` |
-| `{enable}` | `/Users/munir/exp/affects/affect_enable_103.yml` |
-| `{disable}` | `/Users/munir/exp/affects/affect_disable_103.yml` |
-| `{n}` | `103` |
+| `{config}` | `/Users/munir/exp/configs/config_103m5.yml` |
+| `{enable}` | `/Users/munir/exp/affects/affect_enable_103m5.yml` |
+| `{disable}` | `/Users/munir/exp/affects/affect_disable_103m5.yml` |
+| `{n}` | `103m5` |
 | `{dir}` | `/Users/munir/exp` |
 | `{taskdir}` | рабочая папка этого шага |
 | `{outdir}` | значение `--out` |
@@ -182,7 +196,7 @@ yml — допишите строчку в `patterns`, и `{новая_роль}
 storm_runs/
   state.jsonl                      журнал, он же основа возобновления
   report.txt                       итоговый отчёт
-  runs/103/create/attempt1/        рабочая папка шага
+  runs/103m5/create/attempt1/      рабочая папка шага
       stdout.log                   вывод утилиты
       ...                          всё, что утилита написала сама
 ```

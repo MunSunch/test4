@@ -24,7 +24,7 @@ from .executor import (
     run_step,
     workdir_for,
 )
-from .pairing import Experiment
+from .pairing import Experiment, natural_key
 from .state import Journal, Key
 
 
@@ -44,7 +44,7 @@ def fmt_duration(seconds: float) -> str:
 class TaskOutcome:
     """Итог по одному эксперименту: все выполненные шаги в порядке запуска."""
 
-    n: int
+    n: str
     results: List[StepResult] = field(default_factory=list)
 
     @property
@@ -317,7 +317,7 @@ def build_report(
     if problems:
         lines.append("")
         lines.append("Неуспешные ({}):".format(len(problems)))
-        for outcome in sorted(problems, key=lambda o: o.n):
+        for outcome in sorted(problems, key=lambda o: natural_key(o.n)):
             failed = outcome.failed_step
             if failed is None:
                 lines.append("  N={}: {}".format(outcome.n, outcome.status))

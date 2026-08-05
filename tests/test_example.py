@@ -16,17 +16,22 @@ from pathlib import Path
 from tests.support import ROOT, env, run_main
 
 EXAMPLE = ROOT / "example"
-NUMBERS = (103, 104, 105)
+IDS = ("103m4", "103m5", "104m5")
 STEPS = ("create", "enable", "disable", "stop")
 
 
 class ExampleLayoutTest(unittest.TestCase):
     def test_файлы_разложены_как_описано(self):
-        for number in NUMBERS:
-            self.assertTrue((EXAMPLE / "configs" / "config_{}.yml".format(number)).is_file())
+        for experiment_id in IDS:
+            path = EXAMPLE / "configs" / "config_{}.yml".format(experiment_id)
+            self.assertTrue(path.is_file(), path)
             for action in ("enable", "disable"):
-                path = EXAMPLE / "affects" / "affect_{}_{}.yml".format(action, number)
+                path = EXAMPLE / "affects" / "affect_{}_{}.yml".format(action, experiment_id)
                 self.assertTrue(path.is_file(), path)
+
+    def test_пример_показывает_один_номер_на_двух_кластерах(self):
+        self.assertIn("103m4", IDS)
+        self.assertIn("103m5", IDS)
 
     def test_конфиг_примера_разбирается(self):
         from batch_runner import config as config_module
@@ -64,9 +69,9 @@ class ExampleRunTest(unittest.TestCase):
         self.assertEqual(code, 0, output)
         self.assertIn("configs", output)
         self.assertIn("affects", output)
-        self.assertIn("config_103.yml", output)
-        self.assertIn("affect_enable_103.yml", output)
-        self.assertIn("affect_disable_103.yml", output)
+        self.assertIn("config_103m4.yml", output)
+        self.assertIn("affect_enable_103m4.yml", output)
+        self.assertIn("affect_disable_103m4.yml", output)
         self.assertIn("Всего запусков утилиты: 12", output)
 
     def test_прогон_примера_проходит_целиком(self):
@@ -83,7 +88,7 @@ class ExampleRunTest(unittest.TestCase):
         self.assertEqual(code, 0, output)
 
         records = read_records(out / "state.jsonl")
-        expected = {(n, step) for n in NUMBERS for step in STEPS}
+        expected = {(n, step) for n in IDS for step in STEPS}
         self.assertEqual(completed_keys(records), expected)
 
     def test_плейсхолдер_root_разворачивается_в_путь_к_программе(self):

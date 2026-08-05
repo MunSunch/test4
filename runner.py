@@ -53,7 +53,12 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--workers", type=int, default=None, help="сколько запусков держать одновременно")
     parser.add_argument("--timeout", type=int, default=None, help="переопределить таймаут шага, секунды")
     parser.add_argument("--attempts", type=int, default=None, help="сколько попыток на шаг")
-    parser.add_argument("--only", default=None, help="только эти номера: 1,3,7-12")
+    parser.add_argument(
+        "--only",
+        default=None,
+        help="только эти эксперименты: 103,105m4,107-109. Голое число берёт "
+        "эксперимент на всех кластерах, 105m4 — только на этом",
+    )
     parser.add_argument("--limit", type=int, default=None, help="взять только первые N экспериментов")
     parser.add_argument("-r", "--recursive", action="store_true", help="искать yml и в подпапках")
     parser.add_argument("--force", action="store_true", help="игнорировать журнал, прогнать всё заново")
@@ -136,7 +141,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         warnings.extend(scan_warnings)
 
-        only = pairing.parse_number_spec(args.only) if args.only else None
+        only = pairing.parse_selection(args.only) if args.only else None
         experiments = pairing.select(experiments, only=only, limit=args.limit)
     except ConfigError as exc:
         print("Ошибка: {}".format(exc), file=sys.stderr)
